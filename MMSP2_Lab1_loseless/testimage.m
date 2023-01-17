@@ -62,51 +62,27 @@ if condition == "PCM"
 
 end
 % transform coding
-%% 1.simple PCM quantization after applying a transform(transform coding)
-%% 2.the transform is applied to leverage(affect) the characteristics of the signal
-%% 3.we want to reduce the variance of the signal itself
-%%
-N = 8; % dimension of the image block
+%% DCT
+B = 16; % block size 16*16
+I_1 = double(I(:,:,1));
+I_1_dec = zeros(size(I_1));
+I_1_enc = zeros(size(I_1));
 
-K = 8; % dimension of the projection space
-
-block = Y(1:N, 1:N);
-block_dct = dct2(block);
-g = zeros(N,N,K,K);
-for n1 = 1:N
-    for n2 = 1:N
-        for k1=1:K
-            for k2=1:K
-                
-                if k1 == 1
-                    a_k1 = sqrt(1/N);
-                else
-                    a_k1 = sqrt(2/N);
-                end
-    
-                if k2 == 1
-                    a_k2 = sqrt(1/N);
-                else 
-                    a_k2 = sqrt(2/N);
-                end
-                
-                g(n1,n2,k1,k2) = a_k1*cos((2*(n1-1)+1)*pi*(k1-1)/(2*N))*a_k2*cos((2*(n2-1)+1)*pi*(k2-1)/(2*N));
-
-                block_dct(k1,k2,4) = block_dct(k1,k2,4) + g(n1,n2,k1,k2)*block(n1,n2);
-            end
-        end
-    end
-end
-% Compute the MSE between coefficients in the different cases
-block_mse = zeros(4,4);
-for idx1 = 1:4
-    for idx2 = 1:4
-        block_mse(idx1,idx2) = (sum(sum((block_dct(:,:,idx1)-block_dct(:,:,idx2)).^2)))/(N.^2);
-    end
+[H,W] = size(I_1);
+for h=1:B:H-B+1
+	for w= 1:B:W-B+1
+		block = I_1(h:h+B-1,w:w+B-1);
+		block_dct = dct2(block);
+		block_dct_q = delta.*round(block_dct/delta);
+		block_idct = idct2(block_dct_q);
+		I_1_enc(h:h+B-1,w:w+B-1) = block_dct_q;
+		I_1_dec(h:h+B-1,w:w+B-1) = block_idct;
+	end
 end
 
-disp('MSE');
-disp(block_mse);
+%% PSNR
+MSE_1 = mean((I_1(:)-I_1_dec(:)).^2);
+PSNR_1 = 20*log10(255/sqrt(MSE_1));
 
 %% JPEG 
 %% 1.define image block
